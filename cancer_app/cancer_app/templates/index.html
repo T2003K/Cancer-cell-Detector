@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ViT Cancer Detection System</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#0a0d14; --surface:#111520; --surface2:#161b2a; --border:#1e2640;
+    --accent:#00e5ff; --accent2:#ff4d6d; --accent3:#7b61ff;
+    --green:#00e676; --yellow:#ffd740;
+    --text:#e8eaf0; --muted:#606880;
+    --mono:'Space Mono',monospace; --sans:'DM Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,.03)1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.03)1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .wrapper{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px 80px;}
+
+  header{padding:36px 0 24px;display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:32px;}
+  .logo-tag{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;}
+  h1{font-family:var(--mono);font-size:clamp(18px,3vw,26px);font-weight:700;line-height:1.2;}
+  h1 span{color:var(--accent);}
+  .header-meta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+  .model-badge{font-family:var(--mono);font-size:10px;padding:4px 10px;border:1px solid var(--accent3);color:var(--accent3);border-radius:2px;letter-spacing:1px;}
+  .header-sub{font-size:11px;color:var(--muted);}
+
+  .tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:32px;overflow-x:auto;}
+  .tab-btn{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:14px 24px;background:none;border:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;}
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab-num{display:inline-block;width:18px;height:18px;border:1px solid currentColor;border-radius:50%;line-height:16px;text-align:center;font-size:9px;margin-right:8px;}
+  .tab-pane{display:none;}
+  .tab-pane.active{display:block;animation:fadeUp .3s ease;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+  .upload-zone{border:2px dashed var(--border);border-radius:4px;padding:60px 40px;text-align:center;cursor:pointer;transition:all .25s;background:var(--surface);position:relative;overflow:hidden;}
+  .upload-zone::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,229,255,.04)0%,transparent 70%);pointer-events:none;}
+  .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(0,229,255,.04);}
+  .upload-zone input[type=file]{display:none;}
+  .upload-icon{font-size:48px;margin-bottom:16px;display:block;}
+  .upload-zone h3{font-family:var(--mono);font-size:14px;color:var(--text);margin-bottom:8px;}
+  .upload-zone p{font-size:13px;color:var(--muted);}
+  .browse-link{color:var(--accent);cursor:pointer;text-decoration:underline;}
+
+  .btn{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:12px 28px;border:none;border-radius:2px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
+  .btn-primary{background:var(--accent);color:#000;font-weight:700;}
+  .btn-primary:hover{background:#00b8d4;transform:translateY(-1px);}
+  .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+  .btn-secondary{background:transparent;color:var(--accent);border:1px solid var(--accent);}
+  .btn-secondary:hover{background:rgba(0,229,255,.08);}
+  .btn-danger{background:transparent;color:var(--accent2);border:1px solid var(--accent2);}
+  .btn-download{background:var(--green);color:#000;font-weight:700;}
+  .btn-download:hover{background:#00c853;transform:translateY(-1px);}
+  .actions{display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;}
+
+  /* IMAGE COMPARISON VIEWER */
+  .img-compare-wrap{margin-top:24px;}
+  .img-tabs{display:flex;gap:0;margin-bottom:0;border-bottom:1px solid var(--border);}
+  .img-tab{font-family:var(--mono);font-size:10px;padding:8px 16px;background:none;border:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;letter-spacing:1px;}
+  .img-tab.active{color:var(--accent2);border-bottom-color:var(--accent2);}
+  .img-panel{display:none;}
+  .img-panel.active{display:block;}
+
+  .preview-wrap{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;margin-top:0;}
+  .img-box-wrap{position:relative;}
+  .img-box-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+  .img-preview-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;aspect-ratio:1;display:flex;align-items:center;justify-content:center;position:relative;}
+  .img-preview-box img{width:100%;height:100%;object-fit:contain;}
+  .img-preview-box .no-img{color:var(--muted);font-size:12px;font-family:var(--mono);}
+  .highlight-badge{position:absolute;top:10px;right:10px;background:rgba(255,77,109,.9);color:#fff;font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:2px;letter-spacing:1px;}
+  
+  /* PULSE ANIMATION on highlighted image */
+  @keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(255,77,109,.4)}50%{box-shadow:0 0 0 8px rgba(255,77,109,0)}}
+  .img-preview-box.malignant-glow{animation:pulse-border 2s infinite;border-color:var(--accent2);}
+
+  /* RESULT CARD */
+  .result-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:28px;}
+  .result-card.malignant{border-color:var(--accent2);}
+  .result-card.benign{border-color:var(--green);}
+  .result-header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+  .verdict-badge{font-family:var(--mono);font-size:11px;letter-spacing:2px;padding:6px 14px;border-radius:2px;text-transform:uppercase;}
+  .verdict-badge.malignant{background:rgba(255,77,109,.15);color:var(--accent2);border:1px solid var(--accent2);}
+  .verdict-badge.benign{background:rgba(0,230,118,.12);color:var(--green);border:1px solid var(--green);}
+  .verdict-badge.pending{background:rgba(96,104,128,.2);color:var(--muted);border:1px solid var(--border);}
+  .result-class{font-family:var(--mono);font-size:20px;font-weight:700;}
+
+  .confidence-row{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+  .conf-label{font-size:11px;color:var(--muted);width:130px;flex-shrink:0;font-family:var(--mono);}
+  .conf-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+  .conf-bar{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.16,1,.3,1);background:var(--muted);}
+  .conf-val{font-family:var(--mono);font-size:11px;color:var(--text);width:42px;text-align:right;flex-shrink:0;}
+
+  .result-meta{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;}
+  .meta-item{background:var(--surface2);border:1px solid var(--border);padding:12px 16px;border-radius:3px;}
+  .meta-item .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;font-family:var(--mono);}
+  .meta-item .value{font-family:var(--mono);font-size:13px;color:var(--text);}
+
+  /* CANCER ALERT BOX */
+  .cancer-alert{background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.4);border-radius:4px;padding:16px 20px;margin-top:16px;display:flex;gap:14px;align-items:flex-start;}
+  .cancer-alert-icon{font-size:20px;flex-shrink:0;}
+  .cancer-alert h4{font-family:var(--mono);font-size:12px;color:var(--accent2);margin-bottom:4px;letter-spacing:1px;}
+  .cancer-alert p{font-size:12px;color:var(--muted);line-height:1.6;}
+
+  /* BULK */
+  .bulk-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:4px;}
+  .sum-block{text-align:center;}
+  .sum-val{font-family:var(--mono);font-size:28px;font-weight:700;}
+  .sum-val.red{color:var(--accent2);}
+  .sum-val.grn{color:var(--green);}
+  .sum-val.cyn{color:var(--accent);}
+  .sum-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;font-family:var(--mono);}
+  .bulk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-top:8px;}
+  .bulk-item{background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;transition:transform .2s;}
+  .bulk-item:hover{transform:translateY(-2px);}
+  .bulk-item.malignant{border-color:rgba(255,77,109,.5);}
+  .bulk-item.benign{border-color:rgba(0,230,118,.3);}
+  .bulk-thumb-wrap{position:relative;aspect-ratio:1;overflow:hidden;}
+  .bulk-thumb{width:100%;height:100%;object-fit:cover;display:block;}
+  .bulk-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,77,109,.15);opacity:0;transition:opacity .2s;}
+  .bulk-item.malignant .bulk-overlay{opacity:1;}
+  .bulk-overlay-text{font-family:var(--mono);font-size:10px;color:#fff;background:rgba(255,77,109,.8);padding:4px 8px;border-radius:2px;}
+  .bulk-info{padding:10px;}
+  .bulk-name{font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bulk-verdict{font-family:var(--mono);font-size:11px;font-weight:700;}
+  .bulk-verdict.malignant{color:var(--accent2);}
+  .bulk-verdict.benign{color:var(--green);}
+  .bulk-verdict.pending{color:var(--muted);}
+  .bulk-conf{font-size:10px;color:var(--muted);margin-top:2px;}
+
+  /* LOADING */
+  .loading-bar{width:100%;height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin:16px 0;display:none;}
+  .loading-bar.show{display:block;}
+  .loading-bar-fill{height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width .4s;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,229,255,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* COMPARISON */
+  .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px;}
+  .model-card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:24px;position:relative;overflow:hidden;}
+  .model-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+  .model-card.vit16::before{background:var(--accent3);}
+  .model-card.vit32::before{background:var(--accent);}
+  .model-name{font-family:var(--mono);font-size:16px;font-weight:700;margin-bottom:4px;}
+  .model-sub{font-size:12px;color:var(--muted);margin-bottom:20px;}
+  .stat-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .stat-row .s-label{font-size:12px;color:var(--muted);}
+  .stat-row .s-val{font-family:var(--mono);font-size:14px;color:var(--text);}
+  .perf-bar-wrap{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+  .perf-bar-label{font-size:11px;color:var(--muted);margin-bottom:6px;font-family:var(--mono);}
+  .perf-bar-bg{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:10px;}
+  .perf-bar-fill{height:100%;border-radius:4px;}
+  .vit16 .perf-bar-fill{background:var(--accent3);}
+  .vit32 .perf-bar-fill{background:var(--accent);}
+
+  .section-label{font-family:var(--mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+  .divider{height:1px;background:var(--border);margin:32px 0;}
+  .info-box{background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.15);border-radius:4px;padding:16px 20px;font-size:12px;color:var(--muted);margin-bottom:20px;display:flex;align-items:flex-start;gap:12px;}
+  .info-icon{color:var(--accent);flex-shrink:0;font-size:14px;}
+  .class-chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 20px;}
+  .class-chip{font-family:var(--mono);font-size:10px;padding:4px 10px;border:1px solid var(--border);border-radius:2px;color:var(--muted);}
+  .class-chip.cancer{border-color:rgba(255,77,109,.4);color:var(--accent2);}
+  .class-chip.benign{border-color:rgba(0,230,118,.3);color:var(--green);}
+
+  .cm-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;}
+  .cm-table-wrap{overflow-x:auto;}
+  table.cm-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px;}
+  .cm-table th{padding:6px 8px;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .cm-table td{padding:5px 8px;text-align:center;border:1px solid rgba(255,255,255,.04);}
+  .cm-table .row-label{color:var(--muted);text-align:right;padding-right:12px;}
+
+  .report-table-wrap{overflow-x:auto;margin-top:16px;}
+  table.report-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .report-table th{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);}
+  .report-table td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);}
+  .report-table tr:hover td{background:var(--surface2);}
+  .class-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:14px 20px;font-size:13px;z-index:9999;transform:translateY(80px);opacity:0;transition:all .3s;max-width:320px;}
+  .toast.show{transform:translateY(0);opacity:1;}
+
+  @media(max-width:700px){
+    .preview-wrap,.compare-grid,.cm-grid{grid-template-columns:1fr;}
+    .bulk-summary{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div>
+      <div class="logo-tag">// Medical AI · Histopathology</div>
+      <h1>ViT Cancer <span>Detection</span><br>System</h1>
+    </div>
+    <div class="header-meta">
+      <div class="model-badge">ViT-B/16 · ViT-B/32</div>
+      <div class="header-sub">8 Cancer Classes · Pretrained on ImageNet</div>
+      <div class="header-sub" style="color:var(--green);">● localhost:5000</div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('single',this)"><span class="tab-num">1</span>Single Image Analysis</button>
+    <button class="tab-btn" onclick="switchTab('bulk',this)"><span class="tab-num">2</span>Bulk Image Upload</button>
+    <button class="tab-btn" onclick="switchTab('compare',this)"><span class="tab-num">3</span>Model Comparison</button>
+  </div>
+
+  <!-- ===================== TAB 1: SINGLE ===================== -->
+  <div class="tab-pane active" id="tab-single">
+    <div class="info-box">
+      <span class="info-icon">ⓘ</span>
+      <span>Upload a histopathology slide. If cancer is detected, the system will highlight suspected cancer cell regions with annotated circles on the image.</span>
+    </div>
+    <div class="class-chips">
+      <span class="class-chip cancer">Blood-Malignant</span><span class="class-chip benign">Blood-Benign</span>
+      <span class="class-chip cancer">Breast-Malignant</span><span class="class-chip benign">Breast-Benign</span>
+      <span class="class-chip cancer">Colon-Malignant</span><span class="class-chip benign">Colon-Benign</span>
+      <span class="class-chip cancer">Lung-Malignant</span><span class="class-chip benign">Lung-Benign</span>
+    </div>
+
+    <div class="upload-zone" id="single-drop"
+         onclick="document.getElementById('single-file').click()"
+         ondragover="handleDrag(event,'single-drop')"
+         ondragleave="handleDragLeave('single-drop')"
+         ondrop="handleDrop(event,'single')">
+      <input type="file" id="single-file" accept="image/*" onchange="loadSingleFile(event.target.files[0])"/>
+      <span class="upload-icon">🔬</span>
+      <h3>Drop histopathology image here</h3>
+      <p>or <span class="browse-link">browse from device</span></p>
+      <p style="margin-top:8px;font-size:11px;">JPG · PNG · TIFF supported</p>
+    </div>
+
+    <div class="loading-bar" id="single-loading"><div class="loading-bar-fill" id="single-bar"></div></div>
+
+    <div id="single-preview" style="display:none;">
+
+      <!-- Image tabs: original vs highlighted -->
+      <div class="img-compare-wrap">
+        <div class="img-tabs" id="img-tabs">
+          <button class="img-tab active" onclick="showImgPanel('original',this)">Original Image</button>
+          <button class="img-tab" id="highlighted-tab" onclick="showImgPanel('highlighted',this)" style="display:none;">
+            ⚠ Cancer Highlighted
+          </button>
+        </div>
+
+        <div class="preview-wrap" style="margin-top:16px;">
+          <!-- Image viewer -->
+          <div>
+            <div class="img-panel active" id="panel-original">
+              <div class="img-box-label">Input Image</div>
+              <div class="img-preview-box" id="orig-box">
+                <img id="single-img" src="" alt="Original"/>
+              </div>
+              <div style="margin-top:8px;font-size:11px;color:var(--muted);font-family:var(--mono);" id="single-filename"></div>
+            </div>
+            <div class="img-panel" id="panel-highlighted">
+              <div class="img-box-label" style="color:var(--accent2);">Cancer Regions Highlighted</div>
+              <div class="img-preview-box malignant-glow" id="hl-box">
+                <img id="highlighted-img" src="" alt="Highlighted"/>
+                <div class="highlight-badge" id="hl-badge" style="display:none;">⚠ Regions Found</div>
+              </div>
+              <div style="margin-top:8px;font-size:11px;color:var(--accent2);font-family:var(--mono);">Circles = suspected cancer cell clusters</div>
+            </div>
+          </div>
+
+          <!-- Result panel -->
+          <div>
+            <div class="section-label">Analysis Result</div>
+            <div class="result-card" id="single-result-card">
+              <div class="result-header">
+                <div>
+                  <div class="result-class" id="single-class">—</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="single-tissue">Awaiting analysis</div>
+                </div>
+                <div class="verdict-badge pending" id="single-verdict">PENDING</div>
+              </div>
+
+              <div class="section-label">Confidence — All 8 Classes</div>
+              <div id="single-bars"></div>
+
+              <div class="result-meta">
+                <div class="meta-item"><div class="label">Model</div><div class="value">ViT-B/132</div></div>
+                <div class="meta-item"><div class="label">Image Size</div><div class="value" id="meta-size">—</div></div>
+                <div class="meta-item"><div class="label">Confidence</div><div class="value" id="meta-conf">—</div></div>
+                <div class="meta-item"><div class="label">Risk Level</div><div class="value" id="meta-risk">—</div></div>
+              </div>
+
+              <div class="cancer-alert" id="cancer-alert" style="display:none;">
+                <div class="cancer-alert-icon">⚠️</div>
+                <div>
+                  <h4>Malignant Tissue Detected</h4>
+                  <p>Cancer cell regions have been highlighted in the image tab above. <span id="highlight-info"></span> This is an AI-assisted finding — please consult a pathologist for confirmation.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn btn-primary" id="single-btn" onclick="analyzeSingle()" disabled>
+                <div class="spinner" id="single-spinner" style="display:none;"></div>
+                <span id="single-btn-text">Analyze Image</span>
+              </button>
+              <button class="btn btn-download" onclick="downloadSingleReport()" id="single-dl-btn" style="display:none;">⬇ Download Report</button>
+              <button class="btn btn-danger" onclick="resetSingle()">✕ Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TAB 2: BULK ===================== -->
+  <div class="tab-pane" id="tab-bulk">
+    <div class="info-box">
+      <span class="info-icon">ⓘ</span>
+      <span>Upload multiple images for batch analysis. Malignant images are highlighted with a red border. Download a full report after analysis.</span>
+    </div>
+
+    <div class="upload-zone" id="bulk-drop"
+         onclick="document.getElementById('bulk-file').click()"
+         ondragover="handleDrag(event,'bulk-drop')"
+         ondragleave="handleDragLeave('bulk-drop')"
+         ondrop="handleDrop(event,'bulk')">
+      <input type="file" id="bulk-file" accept="image/*" multiple onchange="loadBulkFiles(event.target.files)"/>
+      <span class="upload-icon">📁</span>
+      <h3>Drop multiple images here</h3>
+      <p>or <span class="browse-link">browse files</span> · Select multiple at once</p>
+    </div>
+
+    <div id="bulk-panel" style="display:none;">
+      <div class="loading-bar show" id="bulk-loading"><div class="loading-bar-fill" id="bulk-bar"></div></div>
+      <div class="bulk-summary">
+        <div class="sum-block"><div class="sum-val" id="sum-total">0</div><div class="sum-label">Total</div></div>
+        <div class="sum-block"><div class="sum-val red" id="sum-mal">—</div><div class="sum-label">Malignant</div></div>
+        <div class="sum-block"><div class="sum-val grn" id="sum-ben">—</div><div class="sum-label">Benign</div></div>
+        <div class="sum-block"><div class="sum-val cyn" id="sum-conf">—</div><div class="sum-label">Avg Confidence</div></div>
+      </div>
+      <div class="actions" style="margin-bottom:20px;">
+        <button class="btn btn-primary" onclick="analyzeBulk()"><span class="spinner" id="bulk-spinner" style="display:none;"></span><span id="bulk-btn-text">Run Batch Analysis</span></button>
+        <button class="btn btn-download" onclick="downloadBulkReport()" id="bulk-dl-btn" style="display:none;">⬇ Download Report</button>
+        <button class="btn btn-danger" onclick="resetBulk()">✕ Clear All</button>
+      </div>
+      <div class="bulk-grid" id="bulk-grid"></div>
+    </div>
+  </div>
+
+  <!-- ===================== TAB 3: COMPARISON ===================== -->
+  <div class="tab-pane" id="tab-compare">
+    <div class="info-box">
+      <span class="info-icon">ⓘ</span>
+      <span>Performance comparison between ViT-B/16 and ViT-B/32 models from the notebook. Data from actual training history and confusion matrices (In[62], In[77]).</span>
+    </div>
+    <div class="compare-grid">
+      <div class="model-card vit16">
+        <div class="model-name">ViT-B/16</div>
+        <div class="model-sub">Patch 16 · Fine-Grained · Higher Accuracy</div>
+        <div class="stat-row"><span class="s-label">Validation Accuracy</span><span class="s-val" style="color:var(--accent3)">~94.2%</span></div>
+        <div class="stat-row"><span class="s-label">Training Epochs</span><span class="s-val">10</span></div>
+        <div class="stat-row"><span class="s-label">Inference Speed</span><span class="s-val">~19s/step</span></div>
+        <div class="stat-row"><span class="s-label">Activation</span><span class="s-val">Softmax</span></div>
+        <div class="stat-row"><span class="s-label">Pretrained</span><span class="s-val" style="color:var(--green)">ImageNet ✓</span></div>
+        <div class="perf-bar-wrap">
+          <div class="perf-bar-label">Val Accuracy — 94.2%</div>
+          <div class="perf-bar-bg"><div class="perf-bar-fill" style="width:94.2%"></div></div>
+          <div class="perf-bar-label">Train Accuracy — ~98%</div>
+          <div class="perf-bar-bg"><div class="perf-bar-fill" style="width:98%"></div></div>
+        </div>
+      </div>
+      <div class="model-card vit32">
+        <div class="model-name">ViT-B/32</div>
+        <div class="model-sub">Patch 32 · Faster Compute · Lower Accuracy</div>
+        <div class="stat-row"><span class="s-label">Validation Accuracy</span><span class="s-val" style="color:var(--accent)">~87.6%</span></div>
+        <div class="stat-row"><span class="s-label">Training Epochs</span><span class="s-val">10</span></div>
+        <div class="stat-row"><span class="s-label">Inference Speed</span><span class="s-val">~17s/step</span></div>
+        <div class="stat-row"><span class="s-label">Activation</span><span class="s-val">Softmax</span></div>
+        <div class="stat-row"><span class="s-label">Pretrained</span><span class="s-val" style="color:var(--green)">ImageNet ✓</span></div>
+        <div class="perf-bar-wrap">
+          <div class="perf-bar-label">Val Accuracy — 87.6%</div>
+          <div class="perf-bar-bg"><div class="perf-bar-fill" style="width:87.6%"></div></div>
+          <div class="perf-bar-label">Train Accuracy — ~96.5%</div>
+          <div class="perf-bar-bg"><div class="perf-bar-fill" style="width:96.5%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">Per-Class Accuracy from Confusion Matrices</div>
+    <div class="report-table-wrap">
+      <table class="report-table">
+        <thead><tr><th>Class</th><th>Type</th><th>ViT-16 Acc</th><th>ViT-32 Acc</th><th>Winner</th></tr></thead>
+        <tbody id="class-compare-body"></tbody>
+      </table>
+    </div>
+
+    <div class="cm-grid">
+      <div>
+        <div class="section-label" style="color:var(--accent3);margin-top:24px;">ViT-B/16 Confusion Matrix</div>
+        <div class="cm-table-wrap"><table class="cm-table" id="cm16"></table></div>
+      </div>
+      <div>
+        <div class="section-label" style="color:var(--accent);margin-top:24px;">ViT-B/32 Confusion Matrix</div>
+        <div class="cm-table-wrap"><table class="cm-table" id="cm32"></table></div>
+      </div>
+    </div>
+
+    <div class="actions" style="margin-top:28px;">
+      <button class="btn btn-download" onclick="downloadCompareReport()">⬇ Download Comparison Report</button>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const CLASSES=['Blood-Benign','Blood-Malignant','Breast-Benign','Breast-Malignant','Colon-Benign','Colon-Malignant','Lung-Benign','Lung-Malignant'];
+const CLASS_COLORS={'Blood-Benign':'#4fc3f7','Blood-Malignant':'#ff4d6d','Breast-Benign':'#a5d6a7','Breast-Malignant':'#ff8a65','Colon-Benign':'#80cbc4','Colon-Malignant':'#ce93d8','Lung-Benign':'#fff59d','Lung-Malignant':'#ef9a9a'};
+let CM16,CM32;
+
+// Load comparison data from backend
+fetch('/comparison_data').then(r=>r.json()).then(d=>{
+  CM16=d.cm16; CM32=d.cm32;
+  buildComparisonTable(); buildCM('cm16',CM16,'#7b61ff'); buildCM('cm32',CM32,'#00e5ff');
+});
+
+// ---- STATE ----
+let singleFile=null, singleResult=null;
+let bulkFiles=[], bulkResults=[];
+
+// ---- TABS ----
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+function showImgPanel(name,btn){
+  document.querySelectorAll('.img-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.img-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ---- DRAG & DROP ----
+function handleDrag(e,id){e.preventDefault();document.getElementById(id).classList.add('dragover');}
+function handleDragLeave(id){document.getElementById(id).classList.remove('dragover');}
+function handleDrop(e,type){
+  e.preventDefault();
+  document.getElementById(type+'-drop').classList.remove('dragover');
+  const files=e.dataTransfer.files;
+  if(type==='single'&&files.length>0) loadSingleFile(files[0]);
+  if(type==='bulk'&&files.length>0) loadBulkFiles(files);
+}
+
+// ---- SINGLE ----
+function loadSingleFile(file){
+  singleFile=file; singleResult=null;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    document.getElementById('single-img').src=e.target.result;
+    document.getElementById('single-filename').textContent='// '+file.name;
+    document.getElementById('single-preview').style.display='block';
+    document.getElementById('single-btn').disabled=false;
+    document.getElementById('single-dl-btn').style.display='none';
+    document.getElementById('cancer-alert').style.display='none';
+    document.getElementById('highlighted-tab').style.display='none';
+    document.getElementById('single-bars').innerHTML='';
+    document.getElementById('single-class').textContent='—';
+    document.getElementById('single-tissue').textContent='Awaiting analysis';
+    setVerdict('single-verdict','pending','PENDING');
+    document.getElementById('single-result-card').className='result-card';
+    document.getElementById('meta-size').textContent='—';
+    document.getElementById('meta-conf').textContent='—';
+    document.getElementById('meta-risk').textContent='—';
+    // Reset image tabs
+    showImgPanel('original', document.querySelector('.img-tab'));
+    const img=new Image();
+    img.onload=()=>{document.getElementById('meta-size').textContent=img.width+'×'+img.height;};
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeSingle(){
+  if(!singleFile) return;
+  const btn=document.getElementById('single-btn');
+  btn.disabled=true;
+  document.getElementById('single-spinner').style.display='inline-block';
+  document.getElementById('single-btn-text').textContent='Analyzing...';
+  const loading=document.getElementById('single-loading');
+  const bar=document.getElementById('single-bar');
+  loading.classList.add('show');
+  bar.style.transition='width 1.8s';
+  bar.style.width='80%';
+
+  const fd=new FormData();
+  fd.append('image',singleFile);
+
+  try{
+    const resp=await fetch('/analyze',{method:'POST',body:fd});
+    const data=await resp.json();
+    singleResult=data;
+
+    bar.style.transition='width .3s';
+    bar.style.width='100%';
+    await sleep(350);
+    loading.classList.remove('active');
+    loading.classList.remove('show');
+    bar.style.width='0%';
+
+    renderSingleResult(data);
+  }catch(err){
+    showToast('Error: '+err.message);
+    btn.disabled=false;
+  }
+
+  document.getElementById('single-spinner').style.display='none';
+  document.getElementById('single-btn-text').textContent='Re-analyze';
+  btn.disabled=false;
+}
+
+function renderSingleResult(data){
+  const isMal=data.is_malignant;
+  document.getElementById('single-class').textContent=data.predicted_class;
+  document.getElementById('single-tissue').textContent=data.tissue+' Tissue · ViT-B/132';
+  setVerdict('single-verdict',isMal?'malignant':'benign',isMal?'⚠ MALIGNANT':'✓ BENIGN');
+  document.getElementById('single-result-card').className='result-card '+(isMal?'malignant':'benign');
+  document.getElementById('meta-conf').textContent=data.confidence+'%';
+  document.getElementById('meta-risk').textContent=isMal?'🔴 High':'🟢 Low';
+
+  // Confidence bars
+  const barsEl=document.getElementById('single-bars');
+  barsEl.innerHTML='';
+  const sorted=Object.entries(data.scores).sort((a,b)=>b[1]-a[1]);
+  sorted.forEach(([cls,pct],rank)=>{
+    const color=rank===0?(isMal?'var(--accent2)':'var(--green)'):'var(--muted)';
+    barsEl.innerHTML+=`
+      <div class="confidence-row">
+        <div class="conf-label">${cls}</div>
+        <div class="conf-bar-wrap"><div class="conf-bar" style="width:0%;background:${color}" data-w="${pct}"></div></div>
+        <div class="conf-val">${pct}%</div>
+      </div>`;
+  });
+  setTimeout(()=>{barsEl.querySelectorAll('.conf-bar').forEach(b=>{b.style.width=b.dataset.w+'%';});},50);
+
+  // Cancer highlighting
+  if(isMal && data.highlighted_image){
+    const hlImg=document.getElementById('highlighted-img');
+    hlImg.src='data:image/png;base64,'+data.highlighted_image;
+    document.getElementById('highlighted-tab').style.display='inline-block';
+    document.getElementById('hl-badge').style.display='block';
+    document.getElementById('hl-badge').textContent=`⚠ ${data.highlight_count} Region(s)`;
+    document.getElementById('highlight-info').textContent=`${data.highlight_count} suspected cancer region(s) have been circled.`;
+    document.getElementById('cancer-alert').style.display='flex';
+    // Auto-switch to highlighted tab
+    setTimeout(()=>{
+      showImgPanel('highlighted',document.getElementById('highlighted-tab'));
+    },600);
+  }
+
+  document.getElementById('single-dl-btn').style.display='inline-flex';
+  showToast('Analysis complete: '+data.predicted_class+' ('+data.confidence+'%)');
+}
+
+function setVerdict(id,type,label){
+  const el=document.getElementById(id);
+  el.className='verdict-badge '+type;
+  el.textContent=label;
+}
+
+function resetSingle(){
+  singleFile=null; singleResult=null;
+  document.getElementById('single-preview').style.display='none';
+  document.getElementById('single-file').value='';
+  document.getElementById('single-loading').classList.remove('show');
+}
+
+// ---- BULK ----
+function loadBulkFiles(files){
+  bulkFiles=Array.from(files);
+  bulkResults=new Array(bulkFiles.length).fill(null);
+  document.getElementById('bulk-panel').style.display='block';
+  document.getElementById('bulk-loading').style.display='none';
+  document.getElementById('sum-total').textContent=bulkFiles.length;
+  document.getElementById('sum-mal').textContent='—';
+  document.getElementById('sum-ben').textContent='—';
+  document.getElementById('sum-conf').textContent='—';
+  document.getElementById('bulk-dl-btn').style.display='none';
+
+  const grid=document.getElementById('bulk-grid');
+  grid.innerHTML='';
+  bulkFiles.forEach((f,i)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      grid.innerHTML+=`
+        <div class="bulk-item" id="bi-${i}">
+          <div class="bulk-thumb-wrap">
+            <img class="bulk-thumb" src="${e.target.result}" alt="${f.name}"/>
+            <div class="bulk-overlay"><div class="bulk-overlay-text">MALIGNANT</div></div>
+          </div>
+          <div class="bulk-info">
+            <div class="bulk-name" title="${f.name}">${f.name}</div>
+            <div class="bulk-verdict pending" id="bv-${i}">PENDING</div>
+            <div class="bulk-conf" id="bc-${i}"></div>
+          </div>
+        </div>`;
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+async function analyzeBulk(){
+  if(!bulkFiles.length) return;
+  document.getElementById('bulk-spinner').style.display='inline-block';
+  document.getElementById('bulk-btn-text').textContent='Analyzing...';
+  const loading=document.getElementById('bulk-loading');
+  loading.style.display='block';
+  const bar=document.getElementById('bulk-bar');
+  bar.style.width='0%';
+
+  const fd=new FormData();
+  bulkFiles.forEach(f=>fd.append('images',f));
+
+  try{
+    const resp=await fetch('/analyze_bulk',{method:'POST',body:fd});
+    const results=await resp.json();
+    bulkResults=results;
+
+    let malCount=0,benCount=0,confSum=0;
+    results.forEach((r,i)=>{
+      const isMal=r.is_malignant;
+      if(isMal)malCount++;else benCount++;
+      confSum+=r.confidence;
+      bar.style.width=((i+1)/results.length*100)+'%';
+
+      const card=document.getElementById('bi-'+i);
+      if(card){
+        if(isMal)card.classList.add('malignant');else card.classList.add('benign');
+      }
+      const vEl=document.getElementById('bv-'+i);
+      if(vEl){vEl.textContent=(isMal?'⚠ ':'✓ ')+r.predicted_class;vEl.className='bulk-verdict '+(isMal?'malignant':'benign');}
+      const cEl=document.getElementById('bc-'+i);
+      if(cEl)cEl.textContent=r.confidence+'% confidence';
+
+      document.getElementById('sum-mal').textContent=malCount;
+      document.getElementById('sum-ben').textContent=benCount;
+      document.getElementById('sum-conf').textContent=(confSum/(i+1)).toFixed(1)+'%';
+    });
+
+    loading.style.display='none';
+    document.getElementById('bulk-spinner').style.display='none';
+    document.getElementById('bulk-btn-text').textContent='Re-run Analysis';
+    document.getElementById('bulk-dl-btn').style.display='inline-flex';
+    showToast('Batch complete: '+malCount+' malignant, '+benCount+' benign');
+  }catch(err){
+    showToast('Error: '+err.message);
+    document.getElementById('bulk-spinner').style.display='none';
+    document.getElementById('bulk-btn-text').textContent='Run Batch Analysis';
+  }
+}
+
+function resetBulk(){
+  bulkFiles=[];bulkResults=[];
+  document.getElementById('bulk-panel').style.display='none';
+  document.getElementById('bulk-file').value='';
+}
+
+// ---- COMPARISON ----
+function buildComparisonTable(){
+  if(!CM16||!CM32)return;
+  const body=document.getElementById('class-compare-body');
+  body.innerHTML=CLASSES.map((cls,i)=>{
+    const r16=CM16[i],r32=CM32[i];
+    const t16=r16.reduce((a,b)=>a+b,0),t32=r32.reduce((a,b)=>a+b,0);
+    const a16=(r16[i]/t16*100).toFixed(1),a32=(r32[i]/t32*100).toFixed(1);
+    const better=parseFloat(a16)>=parseFloat(a32)?'16':'32';
+    const isMal=cls.includes('Malignant');
+    return `<tr>
+      <td><span class="class-dot" style="background:${CLASS_COLORS[cls]||'#888'}"></span>${cls}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:${isMal?'var(--accent2)':'var(--green)'}">${isMal?'MALIGNANT':'BENIGN'}</td>
+      <td style="font-family:var(--mono);color:var(--accent3)">${a16}%</td>
+      <td style="font-family:var(--mono);color:var(--accent)">${a32}%</td>
+      <td style="font-family:var(--mono);color:${better==='16'?'var(--accent3)':'var(--accent)'}">ViT-B/${better} ✓</td>
+    </tr>`;
+  }).join('');
+}
+
+function buildCM(tableId,cm,color){
+  if(!cm)return;
+  const table=document.getElementById(tableId);
+  const short=['BlBe','BlMa','BrBe','BrMa','CoBe','CoMa','LuBe','LuMa'];
+  const maxVal=Math.max(...cm.flat());
+  let html='<thead><tr><th></th>'+short.map(s=>`<th>${s}</th>`).join('')+'</tr></thead><tbody>';
+  cm.forEach((row,i)=>{
+    html+=`<tr><td class="row-label">${short[i]}</td>`;
+    row.forEach((val,j)=>{
+      let style='';
+      if(i===j&&val>0)style=`background:${color}33;color:${color};font-weight:700;`;
+      else if(val>0&&val/maxVal>0.3)style=`color:rgba(255,255,255,0.6)`;
+      else if(val>0)style=`color:rgba(255,255,255,0.25)`;
+      else style=`color:var(--border)`;
+      html+=`<td style="${style}">${val||''}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  table.innerHTML=html;
+}
+
+// ---- DOWNLOAD REPORTS ----
+function downloadSingleReport(){
+  if(!singleResult||!singleFile)return;
+  const d=singleResult,date=new Date().toLocaleString();
+  const scores=Object.entries(d.scores).sort((a,b)=>b[1]-a[1]).map(([cls,pct])=>`  ${cls.padEnd(22)} ${pct}%`).join('\n');
+  const report=`
+╔══════════════════════════════════════════════════════════════╗
+║         HISTOPATHOLOGY CANCER DETECTION REPORT               ║
+║                 ViT-Based Classification System               ║
+╚══════════════════════════════════════════════════════════════╝
+
+REPORT DATE       : ${date}
+MODEL             : ViT-B/132 (Vision Transformer, Patch 32)
+SERVER            : localhost:5000
+
+──────────────────────────────────────────────────────────────
+  INPUT FILE
+──────────────────────────────────────────────────────────────
+  Filename         : ${singleFile.name}
+  File Size        : ${(singleFile.size/1024).toFixed(1)} KB
+
+──────────────────────────────────────────────────────────────
+  PRIMARY DIAGNOSIS
+──────────────────────────────────────────────────────────────
+  Predicted Class  : ${d.predicted_class}
+  Verdict          : ${d.is_malignant?'⚠  MALIGNANT — Cancerous tissue detected':'✓  BENIGN — No malignancy detected'}
+  Confidence       : ${d.confidence}%
+  Risk Level       : ${d.risk}
+  Tissue Type      : ${d.tissue}
+  Regions Flagged  : ${d.highlight_count||0}
+
+──────────────────────────────────────────────────────────────
+  ALL CLASS SCORES
+──────────────────────────────────────────────────────────────
+${scores}
+
+──────────────────────────────────────────────────────────────
+  MODEL DETAILS (from notebook)
+──────────────────────────────────────────────────────────────
+  Architecture     : Vision Transformer (ViT-B/32)
+  Patch Size       : 32×32 · Image Size: 224×224
+  Pretrained       : ImageNet (include_top=False)
+  Classes          : 8 (Blood, Breast, Colon, Lung × Benign/Malignant)
+  Val Accuracy     : ~87.6%  |  Train Accuracy: ~96.5%
+
+──────────────────────────────────────────────────────────────
+  DISCLAIMER
+──────────────────────────────────────────────────────────────
+  AI-generated analysis for research/educational use only.
+  NOT a substitute for professional medical diagnosis.
+  Consult a qualified pathologist or oncologist.
+══════════════════════════════════════════════════════════════`.trim();
+  dlText(report,'cancer_report_'+singleFile.name.replace(/\.[^.]+$/,'')+'.txt');
+}
+
+function downloadBulkReport(){
+  if(!bulkResults.length)return;
+  const date=new Date().toLocaleString();
+  let mal=0,ben=0,conf=0;
+  const lines=bulkResults.map((r,i)=>{if(!r)return'';const isMal=r.is_malignant;if(isMal)mal++;else ben++;conf+=r.confidence;return`  ${(i+1)}.`.padEnd(5)+r.filename.padEnd(35)+r.predicted_class.padEnd(22)+r.confidence+'%  '+(isMal?'[MALIGNANT]':'[BENIGN]');}).filter(Boolean).join('\n');
+  const avg=(conf/bulkResults.filter(Boolean).length).toFixed(1);
+  dlText(`BULK CANCER DETECTION REPORT\n${date}\n\nTotal:${bulkFiles.length}  Malignant:${mal}  Benign:${ben}  Avg Confidence:${avg}%\n\n${'─'.repeat(80)}\n${lines}\n\nDISCLAIMER: AI analysis only. Not for clinical use.`,'bulk_report_'+Date.now()+'.txt');
+}
+
+function downloadCompareReport(){
+  if(!CM16||!CM32)return;
+  const rows=CLASSES.map((cls,i)=>{const r16=CM16[i],r32=CM32[i];const t16=r16.reduce((a,b)=>a+b,0),t32=r32.reduce((a,b)=>a+b,0);return`  ${cls.padEnd(22)} ${(r16[i]/t16*100).toFixed(1)}%           ${(r32[i]/t32*100).toFixed(1)}%`;}).join('\n');
+  dlText(`MODEL COMPARISON REPORT\n${new Date().toLocaleString()}\n\nViT-B/16 Val Accuracy: ~94.2%\nViT-B/32 Val Accuracy: ~87.6%\n\nPer-Class:\n  Class                  ViT-16     ViT-32\n${rows}\n\nViT-B/16 is recommended for higher accuracy.`,'comparison_report.txt');
+}
+
+function dlText(text,filename){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download=filename;a.click();showToast('Downloaded: '+filename);}
+
+let toastT;
+function showToast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),3500);}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+</script>
+</body>
+</html>
